@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, redirect, session, url_for, flash
+from flask import Flask, render_template_string, request, redirect, session, url_for, jsonify
 import os
 import sys
 import traceback
@@ -15,7 +15,7 @@ app = Flask(__name__)
 app.secret_key = "reddit_secret_key"
 
 def layout(content, show_back=False):
-    back_btn = '<a href="javascript:history.back()" style="color:var(--reddit-blue); text-decoration:none; font-size:14px; margin-bottom:15px; display:inline-block; font-weight:bold;">← Volver</a>' if show_back else ''
+    back_btn = '<a href="/" style="color:var(--reddit-blue); text-decoration:none; font-size:14px; margin-bottom:15px; display:inline-block; font-weight:bold;">← Volver</a>' if show_back else ''
     nav = f"""
     <div class="navbar">
         <div style="display:flex; align-items:center;">
@@ -44,7 +44,21 @@ def layout(content, show_back=False):
         .vote-btn.active { color: var(--reddit-orange); }
     </style>
     """
-    return f"<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>{style}</head><body>{nav}<div class='container'>{back_btn}{content}</div></body></html>"
+    js = """
+    <script>
+    async function toggleLike(postId, btn) {
+        const response = await fetch('/like/' + postId, { method: 'POST' });
+        if (response.ok) {
+            const data = await response.json();
+            btn.classList.toggle('active');
+            btn.nextElementSibling.innerText = data.likes;
+        } else if (response.status === 401) {
+            window.location.href = '/login';
+        }
+    }
+    </script>
+    """
+    return f"<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>{style}{js}</head><body>{nav}<div class='container'>{back_btn}{content}</div></body></html>"
 
 @app.route('/')
 def home():
@@ -63,7 +77,7 @@ def home():
             content += f'''
             <div class="post-card">
                 <div class="vote-sidebar">
-                    <form action="/like/{p.id}" method="post"><button class="vote-btn {is_active}">▲</button></form>
+                    <button class="vote-btn {is_active}" onclick="toggleLike('{p.id}', this)">▲</button>
                     <div style="font-weight:bold; font-size:12px; margin:4px 0;">{p.likes}</div>
                 </div>
                 <div class="post-main">
@@ -78,33 +92,29 @@ def home():
 
 @app.route('/like/<post_id>', methods=['POST'])
 def like_post(post_id):
-    if 'username' not in session: return redirect('/login')
+    if 'username' not in session: return jsonify({"error": "unauthorized"}), 401
     supabase = get_supabase_client()
     username = session['username']
     
-    # Verificar si ya existe el voto
     check = supabase.table("post_likes").select("*").eq("post_id", post_id).eq("username", username).execute()
     
     if check.data:
-        # QUITAR VOTO (Toggle Off)
         supabase.table("post_likes").delete().eq("post_id", post_id).eq("username", username).execute()
-        # Restar like al post (creamos una función para esto o usamos update)
         post = post_service.read_post(post_id)
-        post_service.update_post(post_id, likes=max(0, post.likes - 1))
+        new_likes = max(0, post.likes - 1)
+        post_service.update_post(post_id, likes=new_likes)
     else:
-        # PONER VOTO (Toggle On)
         supabase.table("post_likes").insert({"post_id": post_id, "username": username}).execute()
-        post_service.add_like_to_post(post_id)
+        post = post_service.add_like_to_post(post_id)
+        new_likes = post.likes
         
-    return redirect(request.referrer or '/')
+    return jsonify({"likes": new_likes})
 
 @app.route('/post/<post_id>')
 def post_detail(post_id):
     try:
         post = post_service.read_post(post_id)
         comments = comment_service.get_comments_for_post(post_id)
-        
-        # Verificar si el usuario actual le dio like
         user_liked = False
         if 'username' in session:
             supabase = get_supabase_client()
@@ -133,7 +143,7 @@ def post_detail(post_id):
         content = f'''
         <div class="post-card">
             <div class="vote-sidebar">
-                <form action="/like/{post.id}" method="post"><button class="vote-btn {is_active}">▲</button></form>
+                <button class="vote-btn {is_active}" onclick="toggleLike('{post.id}', this)">▲</button>
                 <div style="font-weight:bold; font-size:12px; margin:4px 0;">{post.likes}</div>
             </div>
             <div class="post-main">
@@ -144,7 +154,7 @@ def post_detail(post_id):
         </div>
         <div style="background:var(--reddit-post-bg); padding:15px; border-radius:5px; border:1px solid var(--reddit-border);">
             {form}
-            {render_tree(comments)}
+            <div id="comments-list">{render_tree(comments)}</div>
         </div>
         '''
         return layout(content, show_back=True)
