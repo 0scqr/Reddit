@@ -7,8 +7,6 @@ root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
 
-from services import post_service
-
 app = Flask(__name__)
 
 # Plantilla HTML minimalista con estilo Reddit
@@ -62,6 +60,7 @@ def test():
 @app.route('/')
 def home():
     try:
+        from services import post_service
         posts = post_service.read_all_posts()
         return render_template_string(HTML_TEMPLATE, posts=posts)
     except Exception as e:
