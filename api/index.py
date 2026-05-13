@@ -1,6 +1,11 @@
 from flask import Flask, render_template_string
-from services import post_service
 import os
+import sys
+
+# Añadir el directorio raíz al path para que Vercel encuentre los módulos
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from services import post_service
 
 app = Flask(__name__)
 
