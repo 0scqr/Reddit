@@ -36,7 +36,29 @@ def layout(content):
         </div>
     </div>
     """
-    return f"<!DOCTYPE html><html><head><meta charset='UTF-8'>{CSS_STYLE}</head><body>{nav}<div class='container'>{content}</div></body></html>"
+    return f"""<!DOCTYPE html><html><head>
+    <meta charset='UTF-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+    :root {{ --reddit-bg: #030303; --reddit-post-bg: #1A1A1B; --reddit-border: #343536; --reddit-text: #D7DADC; --reddit-orange: #FF4500; --reddit-blue: #0079D3; }}
+    body {{ font-family: 'IBM Plex Sans', sans-serif; background-color: var(--reddit-bg); color: var(--reddit-text); margin: 0; padding: 0; }}
+    .navbar {{ background-color: var(--reddit-post-bg); padding: 10px 15px; border-bottom: 1px solid var(--reddit-border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }}
+    .container {{ max-width: 800px; margin: 0 auto; padding: 15px; box-sizing: border-box; }}
+    .post-card {{ background-color: var(--reddit-post-bg); border: 1px solid var(--reddit-border); border-radius: 5px; padding: 15px; margin-bottom: 15px; }}
+    .post-title {{ font-size: 18px; font-weight: 600; color: white; text-decoration: none; display: block; margin-bottom: 10px; line-height: 1.4; }}
+    .comment {{ border-left: 2px solid var(--reddit-border); margin-left: 5px; padding-left: 10px; margin-top: 15px; }}
+    .input-box {{ width: 100%; background: #272729; border: 1px solid var(--reddit-border); border-radius: 4px; padding: 12px; color: white; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; }}
+    .btn {{ background-color: var(--reddit-blue); color: white; border: none; border-radius: 20px; padding: 10px 20px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; font-size: 14px; }}
+    
+    @media (max-width: 600px) {{
+        .post-title {{ font-size: 16px; }}
+        .navbar {{ padding: 10px; }}
+        .navbar a {{ font-size: 16px !important; }}
+        .comment {{ margin-left: 2px; padding-left: 8px; }}
+    }}
+    </style>
+</head>
+<body>{nav}<div class='container'>{content}</div></body></html>"""
 
 @app.route('/')
 def home():
