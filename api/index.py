@@ -53,6 +53,15 @@ HTML_TEMPLATE = """
 </html>
 """
 
+@app.route('/debug')
+def debug():
+    # Lista solo los nombres de las variables para seguridad
+    vars_list = list(os.environ.keys())
+    return {
+        "variables_detectadas": vars_list,
+        "mensaje": "Si SUPABASE_URL no está en la lista, Vercel no la está leyendo."
+    }
+
 @app.route('/test')
 def test():
     return "Servidor Flask funcionando correctamente!"
