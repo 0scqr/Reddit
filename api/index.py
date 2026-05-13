@@ -2,8 +2,10 @@ from flask import Flask, render_template_string
 import os
 import sys
 
-# Añadir el directorio raíz al path para que Vercel encuentre los módulos
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Forzar que la carpeta raíz sea visible para Python
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
 
 from services import post_service
 
@@ -52,6 +54,10 @@ HTML_TEMPLATE = """
 </body>
 </html>
 """
+
+@app.route('/test')
+def test():
+    return "Servidor Flask funcionando correctamente!"
 
 @app.route('/')
 def home():
