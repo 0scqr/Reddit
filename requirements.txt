@@ -1,0 +1,15 @@
+# Standard libraries (no installation needed):
+# tkinter
+# sqlite3
+# hashlib
+# random
+# os
+# csv
+
+# Needed for Supabase:
+supabase
+python-dotenv
+
+# Needed for web version (if converting for Vercel):
+flask
+gunicorn
