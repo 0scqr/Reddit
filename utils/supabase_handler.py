@@ -6,10 +6,13 @@ from supabase import create_client, Client
 load_dotenv()
 
 def get_supabase_client():
-    url: str = os.environ.get("SUPABASE_URL")
-    key: str = os.environ.get("SUPABASE_KEY")
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")
     
-    if not url or not key:
-        raise ValueError("SUPABASE_URL o SUPABASE_KEY no configuradas")
+    # Depuración básica para ver si las variables existen (sin mostrar su valor real)
+    if not url:
+        raise ValueError("Error: SUPABASE_URL está vacía o no existe en Vercel")
+    if not key:
+        raise ValueError("Error: SUPABASE_KEY está vacía o no existe en Vercel")
         
     return create_client(url, key)
