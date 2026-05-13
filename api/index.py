@@ -40,7 +40,7 @@ def layout(content, show_back=False):
         .comment { border-left: 2px solid var(--reddit-border); margin-left: 10px; padding-left: 15px; margin-top: 15px; }
         .input-box { width: 100%; background: #272729; border: 1px solid var(--reddit-border); border-radius: 4px; padding: 12px; color: white; margin-bottom: 10px; box-sizing: border-box; }
         .btn { background-color: var(--reddit-blue); color: white; border: none; border-radius: 20px; padding: 6px 15px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; font-size: 13px; }
-        .vote-btn { background: none; border: none; color: #818384; cursor: pointer; font-size: 20px; }
+        .vote-btn { background: none; border: none; color: #818384; cursor: pointer; font-size: 20px; transition: color 0.2s; }
         .vote-btn.active { color: var(--reddit-orange); }
     </style>
     """
@@ -76,12 +76,43 @@ def home():
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>", 500
 
+@app.route('/like/<post_id>', methods=['POST'])
+def like_post(post_id):
+    if 'username' not in session: return redirect('/login')
+    supabase = get_supabase_client()
+    username = session['username']
+    
+    # Verificar si ya existe el voto
+    check = supabase.table("post_likes").select("*").eq("post_id", post_id).eq("username", username).execute()
+    
+    if check.data:
+        # QUITAR VOTO (Toggle Off)
+        supabase.table("post_likes").delete().eq("post_id", post_id).eq("username", username).execute()
+        # Restar like al post (creamos una función para esto o usamos update)
+        post = post_service.read_post(post_id)
+        post_service.update_post(post_id, likes=max(0, post.likes - 1))
+    else:
+        # PONER VOTO (Toggle On)
+        supabase.table("post_likes").insert({"post_id": post_id, "username": username}).execute()
+        post_service.add_like_to_post(post_id)
+        
+    return redirect(request.referrer or '/')
+
 @app.route('/post/<post_id>')
 def post_detail(post_id):
     try:
         post = post_service.read_post(post_id)
         comments = comment_service.get_comments_for_post(post_id)
         
+        # Verificar si el usuario actual le dio like
+        user_liked = False
+        if 'username' in session:
+            supabase = get_supabase_client()
+            res = supabase.table("post_likes").select("*").eq("post_id", post_id).eq("username", session['username']).execute()
+            user_liked = len(res.data) > 0
+        
+        is_active = "active" if user_liked else ""
+
         def render_tree(nodes):
             html = ""
             for c in nodes:
@@ -89,7 +120,7 @@ def post_detail(post_id):
                 html += f'<div style="font-size: 12px; color: #818384; font-weight:bold;">u/{c["author"]}</div>'
                 html += f'<div>{c["content"]}</div>'
                 if 'username' in session:
-                    html += f'<button onclick="this.nextElementSibling.style.display=\'block\'" style="background:none; border:none; color:#818384; cursor:pointer; font-size:12px;">Responder</button>'
+                    html += f'<button onclick="this.nextElementSibling.style.display=\'block\'" style="background:none; border:none; color:#818384; cursor:pointer; font-size:12px; padding:0;">Responder</button>'
                     html += f'<div style="display:none; margin-top:10px;">'
                     html += f'<form action="/reply/{post_id}/{c["id"]}" method="post"><textarea name="content" class="input-box" required></textarea><button class="btn">Enviar</button></form></div>'
                 if c.get("replies"):
@@ -101,11 +132,14 @@ def post_detail(post_id):
         
         content = f'''
         <div class="post-card">
+            <div class="vote-sidebar">
+                <form action="/like/{post.id}" method="post"><button class="vote-btn {is_active}">▲</button></form>
+                <div style="font-weight:bold; font-size:12px; margin:4px 0;">{post.likes}</div>
+            </div>
             <div class="post-main">
                 <div style="font-size: 12px; color: #818384;">u/{post.author}</div>
                 <h1 style="margin: 10px 0;">{post.title}</h1>
                 <p>{post.content}</p>
-                <div style="font-weight:bold; font-size:14px; color:var(--reddit-orange);">▲ {post.likes} Upvotes</div>
             </div>
         </div>
         <div style="background:var(--reddit-post-bg); padding:15px; border-radius:5px; border:1px solid var(--reddit-border);">
@@ -116,17 +150,6 @@ def post_detail(post_id):
         return layout(content, show_back=True)
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>", 500
-
-@app.route('/like/<post_id>', methods=['POST'])
-def like_post(post_id):
-    if 'username' not in session: return redirect('/login')
-    supabase = get_supabase_client()
-    username = session['username']
-    check = supabase.table("post_likes").select("*").eq("post_id", post_id).eq("username", username).execute()
-    if not check.data:
-        supabase.table("post_likes").insert({"post_id": post_id, "username": username}).execute()
-        post_service.add_like_to_post(post_id)
-    return redirect(request.referrer or '/')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
