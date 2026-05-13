@@ -38,3 +38,9 @@ def delete_user(id):
     if response.data:
         return User(None, None, id)
     return None
+def authenticate_user(name, password):
+    response = supabase.table("users").select("*").eq("name", name).eq("password", password).execute()
+    if response.data:
+        u = response.data[0]
+        return User(u["name"], u["password"], u["id"])
+    return None
