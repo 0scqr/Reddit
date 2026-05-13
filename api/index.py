@@ -14,7 +14,8 @@ from services import post_service, user_service, comment_service
 app = Flask(__name__)
 app.secret_key = "reddit_secret_key"
 
-def layout(content):
+def layout(content, show_back=False):
+    back_btn = '<a href="javascript:history.back()" style="color:var(--reddit-blue); text-decoration:none; font-size:14px; margin-bottom:15px; display:inline-block; font-weight:bold;">← Volver</a>' if show_back else ''
     nav = f"""
     <div class="navbar">
         <div style="display:flex; align-items:center;">
@@ -38,20 +39,18 @@ def layout(content):
         .post-title { font-size: 18px; font-weight: 600; color: white; text-decoration: none; display: block; margin-bottom: 8px; }
         .comment { border-left: 2px solid var(--reddit-border); margin-left: 10px; padding-left: 15px; margin-top: 15px; }
         .input-box { width: 100%; background: #272729; border: 1px solid var(--reddit-border); border-radius: 4px; padding: 12px; color: white; margin-bottom: 10px; box-sizing: border-box; }
-        .btn { background-color: var(--reddit-blue); color: white; border: none; border-radius: 20px; padding: 6px 15px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn { background-color: var(--reddit-blue); color: white; border: none; border-radius: 20px; padding: 6px 15px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; font-size: 13px; }
         .vote-btn { background: none; border: none; color: #818384; cursor: pointer; font-size: 20px; }
         .vote-btn.active { color: var(--reddit-orange); }
     </style>
     """
-    return f"<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>{style}</head><body>{nav}<div class='container'>{content}</div></body></html>"
+    return f"<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>{style}</head><body>{nav}<div class='container'>{back_btn}{content}</div></body></html>"
 
 @app.route('/')
 def home():
     try:
         posts = post_service.read_all_posts()
         posts.sort(key=lambda x: x.likes, reverse=True)
-        
-        # Obtener los likes del usuario actual si está logueado
         user_likes = []
         if 'username' in session:
             supabase = get_supabase_client()
@@ -76,25 +75,6 @@ def home():
         return layout(content)
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>", 500
-
-@app.route('/like/<post_id>', methods=['POST'])
-def like_post(post_id):
-    if 'username' not in session:
-        return redirect('/login')
-    
-    supabase = get_supabase_client()
-    username = session['username']
-    
-    # Verificar si ya existe el voto
-    check = supabase.table("post_likes").select("*").eq("post_id", post_id).eq("username", username).execute()
-    
-    if not check.data:
-        # Registrar voto
-        supabase.table("post_likes").insert({"post_id": post_id, "username": username}).execute()
-        # Sumar like al post
-        post_service.add_like_to_post(post_id)
-        
-    return redirect(request.referrer or '/')
 
 @app.route('/post/<post_id>')
 def post_detail(post_id):
@@ -133,9 +113,20 @@ def post_detail(post_id):
             {render_tree(comments)}
         </div>
         '''
-        return layout(content)
+        return layout(content, show_back=True)
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>", 500
+
+@app.route('/like/<post_id>', methods=['POST'])
+def like_post(post_id):
+    if 'username' not in session: return redirect('/login')
+    supabase = get_supabase_client()
+    username = session['username']
+    check = supabase.table("post_likes").select("*").eq("post_id", post_id).eq("username", username).execute()
+    if not check.data:
+        supabase.table("post_likes").insert({"post_id": post_id, "username": username}).execute()
+        post_service.add_like_to_post(post_id)
+    return redirect(request.referrer or '/')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -145,14 +136,14 @@ def login():
             session['username'] = user.name
             return redirect('/')
         return "Error: Credenciales inválidas", 401
-    return layout('<h2>Login</h2><form method="post"><input name="username" placeholder="Usuario" class="input-box" required><input name="password" type="password" placeholder="Clave" class="input-box" required><button class="btn">Entrar</button></form>')
+    return layout('<h2>Login</h2><form method="post"><input name="username" placeholder="Usuario" class="input-box" required><input name="password" type="password" placeholder="Clave" class="input-box" required><button class="btn">Entrar</button></form>', show_back=True)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         user_service.create_user(request.form['username'], request.form['password'])
         return redirect('/login')
-    return layout('<h2>Registro</h2><form method="post"><input name="username" placeholder="Usuario" class="input-box" required><input name="password" type="password" placeholder="Clave" class="input-box" required><button class="btn" style="background: var(--reddit-orange);">Registrarse</button></form>')
+    return layout('<h2>Registro</h2><form method="post"><input name="username" placeholder="Usuario" class="input-box" required><input name="password" type="password" placeholder="Clave" class="input-box" required><button class="btn" style="background: var(--reddit-orange);">Registrarse</button></form>', show_back=True)
 
 @app.route('/logout')
 def logout():
