@@ -7,9 +7,9 @@
 # csv
 
 # Needed for Supabase:
-supabase
-python-dotenv
-
-# Needed for web version (if converting for Vercel):
-flask
-gunicorn
+supabase>=2.0.0
+python-dotenv>=1.0.0
+flask>=3.0.0
+gunicorn>=21.2.0
+postgrest>=0.10.0
+httpx>=0.25.0
